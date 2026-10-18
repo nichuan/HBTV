@@ -1,0 +1,7 @@
+name = "hbtv-video-api"
+main = "worker/index.ts"
+compatibility_date = "2026-10-18"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowLeft, ArrowUpRight, ChevronRight, Clapperboard, Loader2, Play, Search, X } from "lucide-react";
-import { API_PUBLISH_URL } from "./config";
+import { API_BASE_URL } from "./config";
 import type { Episode, VideoCard, VideoDetail } from "./types";
 import "./styles.css";
 
@@ -73,7 +73,7 @@ export default function Home() {
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true); setError("");
-    fetch(`${API_PUBLISH_URL}?action=catalog&q=${encodeURIComponent(query)}&page=${page}`, { signal: controller.signal })
+    fetch(`${API_BASE_URL}/api/catalog?q=${encodeURIComponent(query)}&page=${page}`, { signal: controller.signal })
       .then((response) => json<{ items: VideoCard[] }>(response))
       .then((data) => { setItems((before) => page === 1 ? data.items : [...before, ...data.items.filter((item) => !before.some((old) => old.id === item.id))]); setHasMore(data.items.length >= 24); })
       .catch((cause) => { if (cause.name !== "AbortError") setError(cause.message); })
@@ -85,7 +85,7 @@ export default function Home() {
     if (!selectedId) return;
     const controller = new AbortController();
     setDetail(null); setDetailError(""); setDetailLoading(true); setPlaying(null); setPlayError("");
-    fetch(`${API_PUBLISH_URL}?action=detail&id=${selectedId}`, { signal: controller.signal })
+    fetch(`${API_BASE_URL}/api/detail?id=${selectedId}`, { signal: controller.signal })
       .then((response) => json<VideoDetail>(response))
       .then((data) => { setDetail(data); setSource(data.episodes[0]?.source || ""); })
       .catch((cause) => { if (cause.name !== "AbortError") setDetailError(cause.message); })
@@ -103,7 +103,7 @@ export default function Home() {
   async function choose(episode: Episode) {
     const id = ++playRequest.current;
     setPlayLoading(`${episode.source}:${episode.path}`); setPlayError(""); setPlaying(null);
-    try { const response = await fetch(API_PUBLISH_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "play", source: episode.source, path: episode.path }) }); const data = await json<{ url: string }>(response); if (id === playRequest.current) setPlaying({ url: data.url, episode }); }
+    try { const response = await fetch(`${API_BASE_URL}/api/play`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ source: episode.source, path: episode.path }) }); const data = await json<{ url: string }>(response); if (id === playRequest.current) setPlaying({ url: data.url, episode }); }
     catch (cause) { if (id === playRequest.current) setPlayError(cause instanceof Error ? cause.message : "播放地址获取失败"); }
     finally { if (id === playRequest.current) setPlayLoading(""); }
   }

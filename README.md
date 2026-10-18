@@ -13,4 +13,26 @@ npm run dev
 
 推送到 `main` 分支后，GitHub Actions 会构建静态文件并发布到 GitHub Pages。
 
-前端只包含浏览器页面。实时检索和播放地址解析由独立的 HBTV API 服务提供。
+前端静态文件托管在 GitHub Pages，检索、详情和播放地址解析由 Cloudflare Worker 提供；Worker 不代理视频流。
+
+## 发布 API
+
+首次使用前，先在 Cloudflare Wrangler 中登录：
+
+```sh
+npx wrangler login
+```
+
+发布 Worker：
+
+```sh
+npm run deploy:api
+```
+
+本地运行 Worker：
+
+```sh
+npm run dev:api
+```
+
+Worker 免费额度按 Cloudflare 当前 Workers Free 计划计算。上游视频目录和播放服务由第三方维护，可用性取决于其接口状态。
