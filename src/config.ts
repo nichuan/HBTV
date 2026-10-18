@@ -1,1 +1,1 @@
-export const API_BASE_URL = "https://hbtv-video-api.1432194165.workers.dev";
+export const API_PUBLISH_URL = "https://gateway.dev.isrm.going-link.com/marmot/v1/30/marmot-api-public/XKSvNoNlIicIXbTUFS63d6g";

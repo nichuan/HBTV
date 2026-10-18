@@ -13,9 +13,11 @@ npm run dev
 
 推送到 `main` 分支后，GitHub Actions 会构建静态文件并发布到 GitHub Pages。
 
-前端静态文件托管在 GitHub Pages，检索、详情和播放地址解析由 Cloudflare Worker 提供；Worker 不代理视频流。
+前端静态文件托管在 GitHub Pages，当前由 `src/config.ts` 中的 API Publish 接口提供片库检索、详情和播放地址解析。
 
-## 发布 API
+仓库保留了一个可独立部署的 Cloudflare Worker 版本，供后续切换使用；它不代理视频流。
+
+## 部署 Cloudflare Worker 备用 API
 
 首次使用前，先在 Cloudflare Wrangler 中登录：
 
