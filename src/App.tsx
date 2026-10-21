@@ -6,7 +6,8 @@ import { API_PUBLISH_URL } from "./config";
 import type { Episode, VideoCard, VideoDetail } from "./types";
 import "./styles.css";
 
-type Playing = { url: string; episode: Episode } | null;
+type Playback = { url: string; format?: "hls"; playlist?: string };
+type Playing = (Playback & { episode: Episode }) | null;
 
 async function json<T>(response: Response): Promise<T> {
   const data = await response.json() as { error?: string } & T;
@@ -23,17 +24,24 @@ function Player({ playing }: { playing: Playing }) {
     if (!playing || !video) return;
     let cancelled = false;
     let hls: { destroy(): void } | undefined;
-    if (/\.m3u8(?:\?|$)/i.test(playing.url) && !video.canPlayType("application/vnd.apple.mpegurl")) {
+    const playlistUrl = playing.playlist ? URL.createObjectURL(new Blob([playing.playlist], { type: "application/vnd.apple.mpegurl" })) : undefined;
+    const sourceUrl = playlistUrl || playing.url;
+    const isHls = playing.format === "hls" || /\.m3u8(?:\?|$)/i.test(playing.url);
+    if (isHls && (playlistUrl || !video.canPlayType("application/vnd.apple.mpegurl"))) {
       import("hls.js").then(({ default: Hls }) => {
         if (cancelled) return;
-        if (!Hls.isSupported()) { setFailed(true); return; }
+        if (!Hls.isSupported()) {
+          if (video.canPlayType("application/vnd.apple.mpegurl")) { video.src = sourceUrl; video.load(); video.play().catch(() => {}); }
+          else setFailed(true);
+          return;
+        }
         const instance = new Hls(); hls = instance;
-        instance.loadSource(playing.url); instance.attachMedia(video);
+        instance.loadSource(sourceUrl); instance.attachMedia(video);
         instance.on(Hls.Events.ERROR, (_, data) => { if (data.fatal) setFailed(true); });
         video.play().catch(() => {});
       }).catch(() => setFailed(true));
-    } else { video.src = playing.url; video.load(); video.play().catch(() => {}); }
-    return () => { cancelled = true; hls?.destroy(); video.pause(); video.removeAttribute("src"); video.load(); };
+    } else { video.src = sourceUrl; video.load(); video.play().catch(() => {}); }
+    return () => { cancelled = true; hls?.destroy(); video.pause(); video.removeAttribute("src"); video.load(); if (playlistUrl) URL.revokeObjectURL(playlistUrl); };
   }, [playing]);
   if (!playing) return <div className="player-empty"><span className="player-mark"><Play size={28} fill="currentColor" /></span><span>选择分集开始播放</span></div>;
   return <div className="player-content"><video ref={element} controls playsInline preload="metadata" onError={() => setFailed(true)} />{failed && <div className="player-failure">浏览器无法播放此片源。<a href={playing.url} target="_blank" rel="noreferrer">在新窗口打开 <ArrowUpRight size={14} /></a></div>}</div>;
@@ -103,7 +111,7 @@ export default function Home() {
   async function choose(episode: Episode) {
     const id = ++playRequest.current;
     setPlayLoading(`${episode.source}:${episode.path}`); setPlayError(""); setPlaying(null);
-    try { const response = await fetch(API_PUBLISH_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "play", source: episode.source, path: episode.path }) }); const data = await json<{ url: string }>(response); if (id === playRequest.current) setPlaying({ url: data.url, episode }); }
+    try { const response = await fetch(API_PUBLISH_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "play", source: episode.source, path: episode.path, webPlayback: true }) }); const data = await json<Playback>(response); if (id === playRequest.current) setPlaying({ ...data, episode }); }
     catch (cause) { if (id === playRequest.current) setPlayError(cause instanceof Error ? cause.message : "播放地址获取失败"); }
     finally { if (id === playRequest.current) setPlayLoading(""); }
   }
