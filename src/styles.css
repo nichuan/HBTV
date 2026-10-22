@@ -9,3 +9,4 @@
 @media(max-width:390px){.video-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.episode-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 
 .player-shortcut-feedback{position:absolute;top:18px;left:50%;transform:translateX(-50%);padding:9px 16px;border-radius:8px;background:#171513dc;color:#fff;font-size:14px;pointer-events:none;white-space:nowrap}.player-shortcut-feedback:empty{display:none}
+.player-content video:fullscreen{outline:0}
