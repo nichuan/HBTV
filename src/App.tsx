@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowLeft, ArrowUpRight, ChevronRight, Clapperboard, Loader2, Play, Search, X } from "lucide-react";
 import { API_PUBLISH_URL } from "./config";
+import { usePlayerShortcuts } from "./usePlayerShortcuts";
 import type { Episode, VideoCard, VideoDetail } from "./types";
 import "./styles.css";
 
@@ -18,6 +19,7 @@ async function json<T>(response: Response): Promise<T> {
 function Player({ playing }: { playing: Playing }) {
   const element = useRef<HTMLVideoElement>(null);
   const [failed, setFailed] = useState(false);
+  const feedback = usePlayerShortcuts(element, Boolean(playing));
   useEffect(() => {
     setFailed(false);
     const video = element.current;
@@ -44,7 +46,7 @@ function Player({ playing }: { playing: Playing }) {
     return () => { cancelled = true; hls?.destroy(); video.pause(); video.removeAttribute("src"); video.load(); if (playlistUrl) URL.revokeObjectURL(playlistUrl); };
   }, [playing]);
   if (!playing) return <div className="player-empty"><span className="player-mark"><Play size={28} fill="currentColor" /></span><span>选择分集开始播放</span></div>;
-  return <div className="player-content"><video ref={element} controls playsInline preload="metadata" onError={() => setFailed(true)} />{failed && <div className="player-failure">浏览器无法播放此片源。<a href={playing.url} target="_blank" rel="noreferrer">在新窗口打开 <ArrowUpRight size={14} /></a></div>}</div>;
+  return <div className="player-content"><video ref={element} controls playsInline preload="metadata" title="↑/↓ 调整音量 · ←/→ 后退/快进 5 秒" onError={() => setFailed(true)} /><div className="player-shortcut-feedback" role="status" aria-live="polite">{feedback}</div>{failed && <div className="player-failure">浏览器无法播放此片源。<a href={playing.url} target="_blank" rel="noreferrer">在新窗口打开 <ArrowUpRight size={14} /></a></div>}</div>;
 }
 
 function Cover({ item }: { item: VideoCard }) {
@@ -102,7 +104,22 @@ export default function Home() {
   }, [selectedId, reload]);
 
   useEffect(() => { document.body.style.overflow = selectedId ? "hidden" : ""; return () => { document.body.style.overflow = ""; }; }, [selectedId]);
-  useEffect(() => { const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setSelectedId(null); }; window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey); }, []);
+  useEffect(() => {
+    // Chromium can deliver Escape just after leaving fullscreen. Keep that key
+    // from also dismissing the video details underneath the player.
+    let lastFullscreenExit = -Infinity;
+    let fullscreenActive = Boolean(document.fullscreenElement);
+    const onFullscreen = () => {
+      fullscreenActive = Boolean(document.fullscreenElement);
+      if (!fullscreenActive) lastFullscreenExit = performance.now();
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !event.defaultPrevented && !fullscreenActive && !document.fullscreenElement && performance.now() - lastFullscreenExit > 300) setSelectedId(null);
+    };
+    document.addEventListener("fullscreenchange", onFullscreen);
+    window.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("fullscreenchange", onFullscreen); window.removeEventListener("keydown", onKey); };
+  }, []);
 
   function url(q: string, id?: number | null) { const next = new URL(window.location.href); if (q) next.searchParams.set("q", q); else next.searchParams.delete("q"); if (id) next.searchParams.set("id", String(id)); else next.searchParams.delete("id"); window.history.pushState({}, "", next); }
   function search(event?: FormEvent) { event?.preventDefault(); const q = input.trim(); setQuery(q); setPage(1); setItems([]); setHasMore(false); setSelectedId(null); url(q); if (q === query) setReload((n) => n + 1); }
